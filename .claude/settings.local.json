@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "PowerShell",
+      "Bash(cd \"/d/office/self-work/Billng_software\" && mkdir -p server/src/config server/src/models server/src/routes server/src/utils client/src/pages client/src/components client/src/api && ls -R | head -50)",
+      "Bash(node --check src/index.js)",
+      "Bash(node --check src/routes/sales.js)",
+      "Bash(node --check src/routes/purchases.js)",
+      "Bash(node --check src/routes/dashboard.js)",
+      "Bash(node --check src/routes/products.js)",
+      "Bash(timeout 6 node src/index.js)",
+      "Bash(echo \"EXIT:$?\")"
+    ]
+  }
+}
