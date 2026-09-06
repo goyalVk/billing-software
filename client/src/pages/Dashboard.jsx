@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/client.js";
+import { downloadFile } from "../utils/download.js";
 
 function todayStr() {
   const d = new Date();
@@ -41,6 +43,7 @@ export default function Dashboard() {
   const [toDate, setToDate] = useState(todayStr());
   const [dailyReport, setDailyReport] = useState([]);
   const [dailyReportLoading, setDailyReportLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [dailyReportError, setDailyReportError] = useState("");
   const [expandedDate, setExpandedDate] = useState(null);
   const [dayDetailsCache, setDayDetailsCache] = useState({});
@@ -101,6 +104,25 @@ export default function Dashboard() {
     }
   }
 
+  async function exportCsv() {
+    if (fromDate > toDate) {
+      setDailyReportError("'From' date must be on or before 'To' date");
+      return;
+    }
+    setExporting(true);
+    setDailyReportError("");
+    try {
+      await downloadFile(
+        `/dashboard/export-csv?from=${fromDate}&to=${toDate}`,
+        `transactions-${fromDate}-to-${toDate}.csv`
+      );
+    } catch (err) {
+      setDailyReportError(err.response?.data?.message || "Failed to export CSV");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function toggleDay(rowDate) {
     if (expandedDate === rowDate) {
       setExpandedDate(null);
@@ -146,7 +168,7 @@ export default function Dashboard() {
 
       {summary && !loading && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
               <p className="text-sm text-gray-500 mb-1">Total Sales</p>
               <p className="text-2xl sm:text-3xl font-bold text-green-600">
@@ -170,6 +192,24 @@ export default function Dashboard() {
                 {summary.sales.filter((s) => s.paymentStatus !== "paid").length} due invoice(s)
               </p>
             </div>
+            <Link
+              to="/inventory"
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:border-orange-300 transition"
+            >
+              <p className="text-sm text-gray-500 mb-1">Low Stock Items</p>
+              <p
+                className={`text-2xl sm:text-3xl font-bold ${
+                  summary.lowStockCount > 0 ? "text-orange-600" : "text-gray-400"
+                }`}
+              >
+                {summary.lowStockCount ?? 0}
+              </p>
+              <p className="text-xs text-gray-400 mt-1 truncate">
+                {summary.lowStockItems?.length > 0
+                  ? summary.lowStockItems.map((p) => p.name).join(", ")
+                  : "All stock levels healthy"}
+              </p>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -182,13 +222,14 @@ export default function Dashboard() {
                       <th className="px-4 py-2">Customer</th>
                       <th className="px-4 py-2 text-right">Total</th>
                       <th className="px-4 py-2">Status</th>
+                      <th className="px-4 py-2">Mode</th>
                       <th className="px-4 py-2 text-right">Time</th>
                     </tr>
                   </thead>
                   <tbody>
                     {summary.sales.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
+                        <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
                           No sales on this date.
                         </td>
                       </tr>
@@ -208,6 +249,7 @@ export default function Dashboard() {
                             </span>
                           )}
                         </td>
+                        <td className="px-4 py-2 text-gray-500">{s.paymentMode || "-"}</td>
                         <td className="px-4 py-2 text-right text-gray-400">
                           {new Date(s.date).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -307,6 +349,13 @@ export default function Dashboard() {
               This Month
             </button>
           </div>
+          <button
+            onClick={exportCsv}
+            disabled={exporting}
+            className="sm:ml-auto bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {exporting ? "Exporting..." : "Export CSV"}
+          </button>
         </div>
 
         {dailyReportError && (
@@ -381,12 +430,13 @@ export default function Dashboard() {
                                       <th className="pr-4 py-1">Customer</th>
                                       <th className="pr-4 py-1 text-right">Amount</th>
                                       <th className="pr-4 py-1">Status</th>
+                                      <th className="pr-4 py-1">Mode</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {dayDetailsCache[row.date].sales.length === 0 && (
                                       <tr>
-                                        <td colSpan={3} className="py-2 text-gray-400">
+                                        <td colSpan={4} className="py-2 text-gray-400">
                                           No sales.
                                         </td>
                                       </tr>
@@ -407,6 +457,9 @@ export default function Dashboard() {
                                               {s.paymentStatus}
                                             </span>
                                           )}
+                                        </td>
+                                        <td className="pr-4 py-1 text-gray-500">
+                                          {s.paymentMode || "-"}
                                         </td>
                                       </tr>
                                     ))}

@@ -143,6 +143,7 @@ export default function CustomerDetail() {
               <th className="px-4 py-3 text-right">Amount Paid</th>
               <th className="px-4 py-3 text-right">Remaining</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Mode</th>
               <th className="px-4 py-3">Due Date</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -150,7 +151,7 @@ export default function CustomerDetail() {
           <tbody>
             {displayedSales.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={10} className="px-4 py-6 text-center text-gray-400">
                   {showOnlyDues ? "No pending dues." : "No purchase history yet."}
                 </td>
               </tr>
@@ -190,6 +191,7 @@ export default function CustomerDetail() {
                       </span>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-gray-500">{s.paymentMode || "-"}</td>
                   <td className="px-4 py-3">
                     {s.dueDate ? (
                       <span
@@ -259,7 +261,7 @@ export default function CustomerDetail() {
                 </tr>
                 {expandedId === s._id && hasPayments && (
                   <tr className="bg-gray-50 border-t border-gray-100">
-                    <td colSpan={9} className="px-4 py-3">
+                    <td colSpan={10} className="px-4 py-3">
                       <p className="text-xs font-semibold text-gray-500 mb-2">Payment History</p>
                       <table className="text-sm">
                         <thead className="text-gray-500 text-left">

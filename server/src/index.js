@@ -8,6 +8,8 @@ import purchasesRouter from "./routes/purchases.js";
 import dashboardRouter from "./routes/dashboard.js";
 import customersRouter from "./routes/customers.js";
 import suppliersRouter from "./routes/suppliers.js";
+import authRouter from "./routes/auth.js";
+import { authenticate } from "./middleware/authenticate.js";
 
 const app = express();
 
@@ -16,12 +18,13 @@ app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-app.use("/api/products", productsRouter);
-app.use("/api/sales", salesRouter);
-app.use("/api/purchases", purchasesRouter);
-app.use("/api/dashboard", dashboardRouter);
-app.use("/api/customers", customersRouter);
-app.use("/api/suppliers", suppliersRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/products", authenticate, productsRouter);
+app.use("/api/sales", authenticate, salesRouter);
+app.use("/api/purchases", authenticate, purchasesRouter);
+app.use("/api/dashboard", authenticate, dashboardRouter);
+app.use("/api/customers", authenticate, customersRouter);
+app.use("/api/suppliers", authenticate, suppliersRouter);
 
 app.use((err, req, res, next) => {
   console.error(err);

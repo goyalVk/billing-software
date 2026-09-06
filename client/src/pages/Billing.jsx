@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../api/client.js";
+import { downloadFile } from "../utils/download.js";
 
 function todayStr() {
   const d = new Date();
@@ -21,7 +22,9 @@ export default function Billing() {
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [customerDues, setCustomerDues] = useState([]);
   const [customerTotalDue, setCustomerTotalDue] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("paid");
+  const [paymentMode, setPaymentMode] = useState("");
   const [amountPaidNow, setAmountPaidNow] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [error, setError] = useState("");
@@ -152,10 +155,13 @@ export default function Billing() {
     setCart((prev) => prev.filter((row) => row.productId !== productId));
   }
 
-  const grandTotal = cart.reduce(
+  const subtotal = cart.reduce(
     (sum, row) => sum + (Number(row.rate) || 0) * (Number(row.quantity) || 0),
     0
   );
+  const discountPct = Math.min(100, Math.max(0, Number(discountPercent) || 0));
+  const discountAmount = Math.round(subtotal * (discountPct / 100) * 100) / 100;
+  const grandTotal = Math.round((subtotal - discountAmount) * 100) / 100;
 
   function validate() {
     if (!saleDate) return "Invoice date is required";
@@ -166,6 +172,9 @@ export default function Billing() {
     }
     if (paymentStatus !== "paid" && !customerPhone.trim()) {
       return "A customer WhatsApp number is required to mark a sale as Due or Partial";
+    }
+    if (paymentStatus !== "due" && !paymentMode) {
+      return "Payment Mode is required when marking a sale as Paid or Partial";
     }
     if (paymentStatus === "partial") {
       const amount = Number(amountPaidNow);
@@ -195,7 +204,9 @@ export default function Billing() {
         customerPhone: customerPhone.trim(),
         customerAddress: customerAddress.trim(),
         date: saleDate,
+        discountPercent: discountPct,
         paymentStatus,
+        ...(paymentStatus !== "due" && { paymentMode }),
         ...(paymentStatus === "partial" && { amountPaid: Number(amountPaidNow) }),
         ...(paymentStatus !== "paid" && dueDate && { dueDate }),
         items: cart.map((row) => ({
@@ -207,6 +218,7 @@ export default function Billing() {
       setCompletedSale(res.data);
       setCompletedPreviousDue(customerTotalDue);
       setCart([]);
+      setDiscountPercent("");
       setSaleDate(todayStr());
       setCustomerName("");
       setCustomerPhone("");
@@ -217,6 +229,7 @@ export default function Billing() {
       setCustomerDues([]);
       setCustomerTotalDue(0);
       setPaymentStatus("paid");
+      setPaymentMode("");
       setAmountPaidNow("");
       setDueDate("");
     } catch (err) {
@@ -226,9 +239,13 @@ export default function Billing() {
     }
   }
 
-  function downloadInvoice() {
+  async function downloadInvoice() {
     if (!completedSale) return;
-    window.open(`/api/sales/${completedSale._id}/pdf`, "_blank");
+    try {
+      await downloadFile(`/sales/${completedSale._id}/pdf`, `invoice-${completedSale.invoiceNo}.pdf`);
+    } catch {
+      setError("Failed to download invoice PDF");
+    }
   }
 
   function sendOnWhatsApp() {
@@ -247,6 +264,12 @@ export default function Billing() {
       <div className="max-w-lg mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
         <h2 className="text-xl font-semibold mb-2">Invoice Generated</h2>
         <p className="text-gray-500 mb-1">Invoice No: {completedSale.invoiceNo}</p>
+        {completedSale.discountAmount > 0 && (
+          <p className="text-xs text-gray-500 mb-1">
+            Subtotal: Rs. {completedSale.subtotal.toFixed(2)} &nbsp;·&nbsp; Discount (
+            {completedSale.discountPercent}%): - Rs. {completedSale.discountAmount.toFixed(2)}
+          </p>
+        )}
         <p className="text-2xl font-bold text-blue-700 mb-1">
           Rs. {completedSale.totalAmount.toFixed(2)}
         </p>
@@ -262,6 +285,9 @@ export default function Billing() {
               completedSale.totalAmount - completedSale.amountPaid
             ).toFixed(2)} pending)`}
         </p>
+        {completedSale.paymentMode && (
+          <p className="text-xs text-gray-500">Payment Mode: {completedSale.paymentMode}</p>
+        )}
         {completedSale.dueDate && (
           <p className="text-xs text-gray-500 mt-1">
             Due date: {new Date(completedSale.dueDate).toLocaleDateString()}
@@ -448,9 +474,29 @@ export default function Billing() {
         </table>
       </div>
 
-      <div className="flex justify-end mb-6">
-        <div className="text-xl font-bold">
-          Grand Total: <span className="text-blue-700">Rs. {grandTotal.toFixed(2)}</span>
+      <div className="flex flex-wrap items-end justify-end gap-4 mb-6">
+        <div className="w-32">
+          <label className="block text-sm font-medium mb-1">Discount (%)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={discountPercent}
+            onChange={(e) => setDiscountPercent(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="text-right">
+          {discountPct > 0 && (
+            <div className="text-sm text-gray-500 space-y-0.5 mb-1">
+              <div>Subtotal: Rs. {subtotal.toFixed(2)}</div>
+              <div>Discount ({discountPct}%): - Rs. {discountAmount.toFixed(2)}</div>
+            </div>
+          )}
+          <div className="text-xl font-bold">
+            Grand Total: <span className="text-blue-700">Rs. {grandTotal.toFixed(2)}</span>
+          </div>
         </div>
       </div>
 
@@ -604,6 +650,23 @@ export default function Billing() {
             Partial
           </label>
         </div>
+
+        {paymentStatus !== "due" && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium mb-1">Payment Mode</label>
+            <select
+              value={paymentMode}
+              onChange={(e) => setPaymentMode(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select payment mode...</option>
+              <option value="Cash">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="Card">Card</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        )}
 
         {(paymentStatus === "due" || paymentStatus === "partial") && (
           <div className="mt-3">

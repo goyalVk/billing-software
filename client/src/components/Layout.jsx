@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext.jsx";
 
 const navItems = [
   { to: "/", label: "Dashboard", end: true },
@@ -8,15 +9,23 @@ const navItems = [
   { to: "/customers", label: "Customers" },
   { to: "/suppliers", label: "Suppliers" },
   { to: "/dues", label: "Dues" },
+  { to: "/profile", label: "Profile" },
 ];
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -34,7 +43,7 @@ export default function Layout() {
             </div>
           </div>
 
-          <nav className="hidden md:flex gap-1">
+          <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -51,6 +60,12 @@ export default function Layout() {
                 {item.label}
               </NavLink>
             ))}
+            <button
+              onClick={handleLogout}
+              className="ml-1 px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              Logout
+            </button>
           </nav>
 
           <button
@@ -89,6 +104,12 @@ export default function Layout() {
                 {item.label}
               </NavLink>
             ))}
+            <button
+              onClick={handleLogout}
+              className="px-3 py-3 rounded-md text-base font-medium text-red-600 hover:bg-red-50 text-left"
+            >
+              Logout
+            </button>
           </nav>
         )}
       </header>

@@ -20,6 +20,9 @@ export default function Purchase({ initialSupplierId, initialSupplierName }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState([]);
   const [miscAmount, setMiscAmount] = useState("0");
+  const [paymentStatus, setPaymentStatus] = useState("paid");
+  const [amountPaidNow, setAmountPaidNow] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -159,6 +162,12 @@ export default function Purchase({ initialSupplierId, initialSupplierName }) {
     if (miscAmount !== "" && (isNaN(Number(miscAmount)) || Number(miscAmount) < 0)) {
       return "Miscellaneous amount must be 0 or a positive number";
     }
+    if (paymentStatus === "partial") {
+      const amount = Number(amountPaidNow);
+      if (!(amount > 0) || amount >= grandTotal) {
+        return "Amount Paid Now must be greater than 0 and less than the grand total";
+      }
+    }
     return "";
   }
 
@@ -185,6 +194,9 @@ export default function Purchase({ initialSupplierId, initialSupplierName }) {
         })),
         miscAmount: miscAmountNum,
         date: purchaseDate,
+        paymentStatus,
+        ...(paymentStatus === "partial" && { amountPaid: Number(amountPaidNow) }),
+        ...(paymentStatus !== "paid" && dueDate && { dueDate }),
       });
       setSuccess(
         `Purchase saved and stock updated successfully. Grand Total: Rs. ${grandTotal.toFixed(2)}${
@@ -196,6 +208,9 @@ export default function Purchase({ initialSupplierId, initialSupplierName }) {
       setItems([]);
       setMiscAmount("0");
       setPurchaseDate(todayStr());
+      setPaymentStatus("paid");
+      setAmountPaidNow("");
+      setDueDate("");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save purchase");
     } finally {
@@ -399,6 +414,73 @@ export default function Purchase({ initialSupplierId, initialSupplierName }) {
           onChange={(e) => setMiscAmount(e.target.value)}
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 max-w-md">
+        <h3 className="font-semibold mb-3">Payment to Supplier</h3>
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="purchasePaymentStatus"
+              checked={paymentStatus === "paid"}
+              onChange={() => setPaymentStatus("paid")}
+            />
+            Paid
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="purchasePaymentStatus"
+              checked={paymentStatus === "due"}
+              onChange={() => setPaymentStatus("due")}
+            />
+            Due
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="purchasePaymentStatus"
+              checked={paymentStatus === "partial"}
+              onChange={() => setPaymentStatus("partial")}
+            />
+            Partial
+          </label>
+        </div>
+
+        {(paymentStatus === "due" || paymentStatus === "partial") && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium mb-1">
+              Due Date <span className="font-normal text-gray-400">(optional, for reminders)</span>
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              min={purchaseDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        )}
+
+        {paymentStatus === "partial" && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium mb-1">
+              Amount Paid Now (max Rs. {grandTotal.toFixed(2)})
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={amountPaidNow}
+              onChange={(e) => setAmountPaidNow(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Must be greater than 0 and less than the grand total (Rs. {grandTotal.toFixed(2)}).
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end mb-6">

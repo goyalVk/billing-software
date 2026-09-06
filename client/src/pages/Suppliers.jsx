@@ -100,27 +100,28 @@ export default function Suppliers() {
               <th className="px-4 py-3">Last Purchase</th>
               <th className="px-4 py-3 text-right">Total Purchases</th>
               <th className="px-4 py-3 text-right">Total Paid</th>
+              <th className="px-4 py-3 text-right">Due</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && suppliers.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
                   No suppliers found.
                 </td>
               </tr>
             )}
             {!loading &&
               suppliers.map((s) => (
-                <tr key={s._id} className="border-t border-gray-100">
+                <tr key={s._id} className={`border-t border-gray-100 ${s.totalDue > 0 ? "bg-red-50" : ""}`}>
                   <td className="px-4 py-3 font-medium">
                     <Link to={`/suppliers/${s._id}`} className="text-blue-600 hover:underline">
                       {s.name}
@@ -132,6 +133,13 @@ export default function Suppliers() {
                   </td>
                   <td className="px-4 py-3 text-right">{s.totalPurchases}</td>
                   <td className="px-4 py-3 text-right">Rs. {s.totalPaid.toFixed(2)}</td>
+                  <td
+                    className={`px-4 py-3 text-right font-medium ${
+                      s.totalDue > 0 ? "text-red-600" : "text-gray-400"
+                    }`}
+                  >
+                    Rs. {s.totalDue.toFixed(2)}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => goToAddPurchase(s)}

@@ -8,9 +8,8 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const { search } = req.query;
-    const filter = search
-      ? { name: { $regex: search, $options: "i" } }
-      : {};
+    const filter = { userId: req.user.userId };
+    if (search) filter.name = { $regex: search, $options: "i" };
     const products = await Product.find(filter).sort({ name: 1 });
     res.json(products);
   } catch (err) {
@@ -21,7 +20,7 @@ router.get("/", async (req, res) => {
 // GET /api/products/:id
 router.get("/:id", async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ _id: req.params.id, userId: req.user.userId });
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   } catch (err) {
@@ -33,7 +32,13 @@ router.get("/:id", async (req, res) => {
 router.get("/:id/purchase-history", async (req, res) => {
   try {
     const productId = req.params.id;
-    const purchases = await Purchase.find({ "items.productId": productId }).sort({ date: -1 });
+    const product = await Product.findOne({ _id: productId, userId: req.user.userId });
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    const purchases = await Purchase.find({
+      "items.productId": productId,
+      userId: req.user.userId,
+    }).sort({ date: -1 });
 
     const history = [];
     for (const purchase of purchases) {
@@ -68,6 +73,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Valid purchase and selling rate are required" });
     }
     const product = await Product.create({
+      userId: req.user.userId,
       name: name.trim(),
       unit,
       purchaseRate,
@@ -83,18 +89,22 @@ router.post("/", async (req, res) => {
 // PUT /api/products/:id
 router.put("/:id", async (req, res) => {
   try {
-    const { name, unit, purchaseRate, sellingRate, currentStock } = req.body;
+    const { name, unit, purchaseRate, sellingRate, currentStock, lowStockThreshold } = req.body;
     if (name != null && !name.trim()) {
       return res.status(400).json({ message: "Product name cannot be empty" });
     }
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
+    if (lowStockThreshold != null && lowStockThreshold < 0) {
+      return res.status(400).json({ message: "Low stock threshold cannot be negative" });
+    }
+    const product = await Product.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.userId },
       {
         ...(name != null && { name: name.trim() }),
         ...(unit != null && { unit }),
         ...(purchaseRate != null && { purchaseRate }),
         ...(sellingRate != null && { sellingRate }),
         ...(currentStock != null && { currentStock }),
+        ...(lowStockThreshold != null && { lowStockThreshold }),
       },
       { new: true, runValidators: true }
     );
@@ -108,7 +118,7 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/products/:id
 router.delete("/:id", async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findOneAndDelete({ _id: req.params.id, userId: req.user.userId });
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json({ message: "Product deleted" });
   } catch (err) {

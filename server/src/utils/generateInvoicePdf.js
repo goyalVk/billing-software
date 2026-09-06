@@ -59,6 +59,20 @@ export function generateInvoicePdf(res, sale) {
     .stroke();
   doc.moveDown(0.5);
 
+  if (sale.discountAmount > 0) {
+    const subtotal = sale.subtotal ?? sale.totalAmount + sale.discountAmount;
+    doc.font("Helvetica").fontSize(10);
+    doc.text(`Subtotal: Rs. ${subtotal.toFixed(2)}`, colX.rate, doc.y, { align: "left" });
+    doc.moveDown(0.3);
+    doc.text(
+      `Discount (${sale.discountPercent}%): - Rs. ${sale.discountAmount.toFixed(2)}`,
+      colX.rate,
+      doc.y,
+      { align: "left" }
+    );
+    doc.moveDown(0.4);
+  }
+
   doc.font("Helvetica-Bold").fontSize(12);
   doc.text(`Grand Total: Rs. ${sale.totalAmount.toFixed(2)}`, colX.rate, doc.y, {
     align: "left",

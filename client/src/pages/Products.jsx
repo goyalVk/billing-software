@@ -2,7 +2,14 @@ import { Fragment, useEffect, useState } from "react";
 import api from "../api/client.js";
 
 const UNITS = ["pcs", "kg", "box", "ltr"];
-const emptyForm = { name: "", unit: "pcs", purchaseRate: "", sellingRate: "", currentStock: "" };
+const emptyForm = {
+  name: "",
+  unit: "pcs",
+  purchaseRate: "",
+  sellingRate: "",
+  currentStock: "",
+  lowStockThreshold: 5,
+};
 
 function todayStr() {
   const d = new Date();
@@ -61,6 +68,7 @@ export default function Products() {
       purchaseRate: product.purchaseRate,
       sellingRate: product.sellingRate,
       currentStock: product.currentStock,
+      lowStockThreshold: product.lowStockThreshold ?? 5,
     });
     setError("");
     setShowModal(true);
@@ -71,6 +79,8 @@ export default function Products() {
     if (form.purchaseRate === "" || Number(form.purchaseRate) < 0) return "Valid purchase rate is required";
     if (form.sellingRate === "" || Number(form.sellingRate) < 0) return "Valid selling rate is required";
     if (form.currentStock !== "" && Number(form.currentStock) < 0) return "Stock cannot be negative";
+    if (form.lowStockThreshold !== "" && Number(form.lowStockThreshold) < 0)
+      return "Low stock threshold cannot be negative";
     return "";
   }
 
@@ -87,6 +97,7 @@ export default function Products() {
       purchaseRate: Number(form.purchaseRate),
       sellingRate: Number(form.sellingRate),
       currentStock: form.currentStock === "" ? 0 : Number(form.currentStock),
+      lowStockThreshold: form.lowStockThreshold === "" ? 5 : Number(form.lowStockThreshold),
     };
     try {
       await api.put(`/products/${editingId}`, payload);
@@ -221,17 +232,38 @@ export default function Products() {
               </tr>
             )}
             {!loading &&
-              products.map((p) => (
+              products.map((p) => {
+                const threshold = p.lowStockThreshold ?? 5;
+                const isOutOfStock = p.currentStock <= 0;
+                const isLowStock = !isOutOfStock && p.currentStock <= threshold;
+                return (
                 <Fragment key={p._id}>
-                  <tr className="border-t border-gray-100">
+                  <tr
+                    className={`border-t border-gray-100 ${
+                      isOutOfStock ? "bg-red-50" : isLowStock ? "bg-orange-50" : ""
+                    }`}
+                  >
                     <td className="px-4 py-3 font-medium">{p.name}</td>
                     <td className="px-4 py-3">{p.unit}</td>
                     <td className="px-4 py-3 text-right">{p.purchaseRate.toFixed(2)}</td>
                     <td className="px-4 py-3 text-right">{p.sellingRate.toFixed(2)}</td>
                     <td className="px-4 py-3 text-right">
-                      <span className={p.currentStock <= 0 ? "text-red-600 font-semibold" : ""}>
+                      <span
+                        className={
+                          isOutOfStock
+                            ? "text-red-600 font-semibold"
+                            : isLowStock
+                            ? "text-orange-600 font-semibold"
+                            : ""
+                        }
+                      >
                         {p.currentStock}
                       </span>
+                      {isLowStock && (
+                        <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700 whitespace-nowrap">
+                          Low Stock
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
                       <button
@@ -383,7 +415,8 @@ export default function Products() {
                     </tr>
                   )}
                 </Fragment>
-              ))}
+                );
+              })}
           </tbody>
         </table>
       </div>
@@ -446,16 +479,29 @@ export default function Products() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Current Stock</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.currentStock}
-                  onChange={(e) => setForm({ ...form, currentStock: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Current Stock</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.currentStock}
+                    onChange={(e) => setForm({ ...form, currentStock: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Low Stock Alert At</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.lowStockThreshold}
+                    onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button

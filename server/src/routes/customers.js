@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import express from "express";
 import Customer from "../models/Customer.js";
 import Sale from "../models/Sale.js";
@@ -8,22 +9,24 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const { search } = req.query;
-    const match = search
-      ? {
-          $or: [
-            { name: { $regex: search, $options: "i" } },
-            { phone: { $regex: search, $options: "i" } },
-          ],
-        }
-      : {};
+    const userId = new mongoose.Types.ObjectId(req.user.userId);
+    const match = { userId };
+    if (search) {
+      match.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
 
     const customers = await Customer.aggregate([
       { $match: match },
       {
         $lookup: {
           from: "sales",
-          localField: "_id",
-          foreignField: "customerId",
+          let: { customerId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ["$customerId", "$$customerId"] }, { $eq: ["$userId", userId] }] } } },
+          ],
           as: "sales",
         },
       },
@@ -50,11 +53,12 @@ router.get("/lookup", async (req, res) => {
   try {
     const { phone } = req.query;
     if (!phone || !phone.trim()) return res.json(null);
-    const customer = await Customer.findOne({ phone: phone.trim() });
+    const customer = await Customer.findOne({ phone: phone.trim(), userId: req.user.userId });
     if (!customer) return res.json(null);
 
     const dueSales = await Sale.find({
       customerId: customer._id,
+      userId: req.user.userId,
       paymentStatus: { $in: ["due", "partial"] },
     }).sort({ date: -1 });
 
@@ -75,10 +79,12 @@ router.get("/lookup", async (req, res) => {
 // GET /api/customers/:id — detail with full purchase history
 router.get("/:id", async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id);
+    const customer = await Customer.findOne({ _id: req.params.id, userId: req.user.userId });
     if (!customer) return res.status(404).json({ message: "Customer not found" });
 
-    const sales = await Sale.find({ customerId: customer._id }).sort({ date: -1 });
+    const sales = await Sale.find({ customerId: customer._id, userId: req.user.userId }).sort({
+      date: -1,
+    });
     const totalVisits = sales.length;
     const totalSpent = sales.reduce((sum, s) => sum + s.totalAmount, 0);
     const totalDue = sales.reduce(

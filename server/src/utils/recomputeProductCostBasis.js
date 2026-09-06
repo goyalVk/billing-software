@@ -9,10 +9,10 @@ import Sale from "../models/Sale.js";
 // purchase's miscAmount (transport/labour/other charges) is allocated across
 // its items proportionally to amount, same as at write-time, so the replayed
 // rate stays misc-inclusive.
-export async function recomputeProductCostBasis(productId) {
+export async function recomputeProductCostBasis(productId, userId) {
   const [purchases, sales] = await Promise.all([
-    Purchase.find({ "items.productId": productId }).sort({ date: 1 }),
-    Sale.find({ "items.productId": productId }).sort({ date: 1 }),
+    Purchase.find({ "items.productId": productId, userId }).sort({ date: 1 }),
+    Sale.find({ "items.productId": productId, userId }).sort({ date: 1 }),
   ]);
 
   const events = [];
